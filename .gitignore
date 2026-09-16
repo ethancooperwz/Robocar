@@ -1,0 +1,44 @@
+# ===== 第三方与超大依赖 =====
+third_party_ros2/
+
+# ===== 文档 =====
+*.pdf
+
+# ===== ROS / 构建产物 =====
+**/build/
+**/install/
+**/log/
+**/__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+*.egg
+
+# ===== 大模型权重 / 引擎 =====
+*.whl
+*.zip
+*.tar
+*.tar.gz
+*.deb
+*.onnx
+*.engine
+*.trt
+*.pt
+
+# ===== 运行时缓存 =====
+**/msc/
+ros2_ws/src/xf_mic_asr_offline/tmp/
+*.log
+software/collect_picture/Log/
+
+# ===== IDE / 系统 =====
+.cache/
+.vscode/
+.idea/
+*.swp
+*~
+.bashrc
+.zshrc
+.xsessionrc
+Desktop/

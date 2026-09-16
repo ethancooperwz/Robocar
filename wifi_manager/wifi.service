@@ -1,0 +1,11 @@
+[Unit]
+After=NetworkManager.service
+
+[Service]
+Type=simple
+ExecStart=/home/ubuntu/wifi_manager/wifi.py
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target

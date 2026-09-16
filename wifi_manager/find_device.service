@@ -1,0 +1,14 @@
+[Unit]
+After=NetworkManager.service
+
+[Service]
+Type=simple
+User=ubuntu
+Restart=always
+RestartSec=5
+ExecStart=/home/ubuntu/wifi_manager/find_device.py
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target

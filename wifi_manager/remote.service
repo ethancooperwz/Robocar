@@ -1,0 +1,13 @@
+[Unit]
+After=NetworkManager.service
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5
+ExecStart=/home/ubuntu/wifi_manager/remote.py
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target

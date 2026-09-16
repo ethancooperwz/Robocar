@@ -1,0 +1,3 @@
+[submodule "linux-wifi-hotspot"]
+	path = linux-wifi-hotspot
+	url = https://github.com/lakinduakash/linux-wifi-hotspot.git
