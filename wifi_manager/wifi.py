@@ -115,98 +115,84 @@ if __name__ == "__main__":
     def disconnect():
         try:
             wifi = get_connect()
-            os.system('nmcli connection down %s'%wifi)
-            os.system('nmcli connection delete %s'%wifi)
-            os.system('rm /etc/NetworkManager/system-connections/*')
+            if wifi:
+                # 断开连接
+                os.system('nmcli connection down %s'%wifi)
         except:
             pass
 
+    def is_connected_to_normal_wifi(ap_ssid_prefix="HW-"):
+        try:
+            cmd = "nmcli -t -f ACTIVE,SSID dev wifi | grep '^yes' | cut -d: -f2"
+            ssid = subprocess.check_output(cmd, shell=True).decode().strip()
+            if ssid and not ssid.startswith(ap_ssid_prefix):
+                return True, ssid
+        except:
+            pass
+        return False, ""
+
+    def wait_nm_autoconnect(timeout=30):
+        print("waiting NetworkManager autoconnect...")
+        for i in range(timeout):
+            ok, ssid = is_connected_to_normal_wifi()
+            if ok:
+               print("autoconnected:", ssid)
+               logger.info("autoconnected: " + ssid)
+               return True
+            time.sleep(1)
+        return False 
+
     def WIFI_MGR():
         global WIFI_AP_SSID
-        global WIFI_STA_SSID
         global WIFI_AP_PASSWORD
-        global WIFI_STA_PASSWORD
         global led_on_time
         global led_off_time
-        global server, ip
-        
-        if WIFI_MODE == 1: #AP
-            led_on_time = 50
-            led_off_time = 50
-            if type(WIFI_AP_PASSWORD) != str: #check password
-                logger.error("Invalid WIFI_PASSWORD")
-                WIFI_AP_PASSWORD = ""
-            if len(WIFI_AP_PASSWORD) < 8 and WIFI_AP_PASSWORD != "":
-                logger.error("password is too short")
-                WIFI_AP_PASSWORD = ""
-            if type(WIFI_AP_SSID) != str: #check ssid
-                logger.error("Invalid WIFI_AP_SSID")
-                WIFI_AP_SSID = ''.join([ap_prefix, sn[0:8]])
-            
-            disconnect()
-            os.system('nmcli connection down %s'%WIFI_AP_SSID)
-            os.system('nmcli connection delete %s'%WIFI_AP_SSID)
-            os.system('nmcli con add type wifi ifname wlan0 con-name {} autoconnect yes ssid {}'.format(WIFI_AP_SSID, WIFI_AP_SSID))
-            os.system('nmcli con modify {} 802-11-wireless.mode ap ipv4.method shared ipv4.addresses {}/24'.format(WIFI_AP_SSID, WIFI_AP_GATEWAY))
-            os.system('nmcli con modify {} wifi-sec.key-mgmt wpa-psk wifi-sec.psk {}'.format(WIFI_AP_SSID, WIFI_AP_PASSWORD))
-            os.system('nmcli con up {}'.format(WIFI_AP_SSID))
-            timeout = 0 
-            while True:
-                timeout += 1
-                wifi = get_connect()
-                if wifi == WIFI_AP_SSID:
-                    print("*************Create AP: " + WIFI_AP_SSID)
-                    logger.info(WIFI_AP_SSID)
-                    return -1
-                if timeout == 20:
-                    print("*************Restart NetworkManager")
-                    os.system('systemctl restart NetworkManager')
-                if timeout > 20:
-                    print("*************Create Fail Restart ...")
-                    return 0
-                time.sleep(1)
 
-        elif WIFI_MODE == 2: #Client
-            led_on_time = 5
-            led_off_time = 5
-            
-            disconnect() 
-            count = 0
-            while True:
-                p = subprocess.Popen(['nmcli', 'device', 'wifi', 'connect', WIFI_STA_SSID, 'password', WIFI_STA_PASSWORD], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                stdout, stderr = p.communicate()
-                if p.returncode != 0:
-                    time.sleep(5)
-                else:
-                    break
-                count += 1
-                if count > 3:
-                    break
-            count = 0
-            while True:
-                cmd = "nmcli -t -f ACTIVE,SSID dev wifi | grep 'yes' | cut -d\: -f2"
-                result = subprocess.check_output(cmd, shell=True)
+        # 先等系统自动连已保存 WiFi
+        led_on_time = 5
+        led_off_time = 5
 
-                ssid_name = result.decode().strip()
-                if count < WIFI_TIMEOUT and ssid_name == '': 
-                    count += 1
-                    time.sleep(1)
-                elif ssid_name == WIFI_STA_SSID:
-                    msg = "Connected to " + WIFI_STA_SSID
-                    print("*************%s"%msg)
-                    logger.info(msg)
-                    led_on_time = 100
-                    led_off_time = 0
-                    break
-                else:
-                    msg = "Can not connect to SSID: " + WIFI_STA_SSID
-                    print("*************%s"%msg)
-                    logger.error(msg)
-                    return 0
-
+        if wait_nm_autoconnect(30):
+            led_on_time = 100
+            led_off_time = 0
             return -1
-        else:
-            logger.error("Invalid WIFI_MODE")
+
+        # 自动连接失败，开 AP
+        print("autoconnect failed, create AP")
+        logger.error("autoconnect failed, create AP")
+
+        led_on_time = 50
+        led_off_time = 50
+
+        if type(WIFI_AP_PASSWORD) != str:
+            WIFI_AP_PASSWORD = "hiwonder"
+        if len(WIFI_AP_PASSWORD) < 8:
+            WIFI_AP_PASSWORD = "hiwonder"
+        if type(WIFI_AP_SSID) != str:
+            WIFI_AP_SSID = ''.join([ap_prefix, sn[0:8]])
+
+        # 只删除同名 AP，不要清空全部网络
+        os.system('nmcli connection down "%s" >/dev/null 2>&1' % WIFI_AP_SSID)
+        os.system('nmcli connection delete "%s" >/dev/null 2>&1' % WIFI_AP_SSID)
+ 
+        os.system('nmcli con add type wifi ifname wlan0 con-name "{0}" autoconnect no ssid "{0}"'.format(WIFI_AP_SSID))
+        os.system('nmcli con modify "{0}" 802-11-wireless.mode ap ipv4.method shared ipv4.addresses {1}/24'.format(WIFI_AP_SSID, WIFI_AP_GATEWAY))
+        os.system('nmcli con modify "{0}" wifi-sec.key-mgmt wpa-psk wifi-sec.psk "{1}"'.format(WIFI_AP_SSID, WIFI_AP_PASSWORD))
+        os.system('nmcli con up "{0}"'.format(WIFI_AP_SSID))
+
+        timeout = 0
+        while True:
+           timeout += 1
+           wifi = get_connect()
+           if wifi == WIFI_AP_SSID:
+               print("Create AP:", WIFI_AP_SSID)
+               logger.info(WIFI_AP_SSID)
+               return -1
+           if timeout == 20:
+               os.system('systemctl restart NetworkManager')
+           if timeout > 20:
+               return 0
+           time.sleep(1)
     if WIFI_LED == True:
         threading.Thread(target = led_thread).start()
     while True:
